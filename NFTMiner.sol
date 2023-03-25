@@ -2,7 +2,7 @@
 
 // File @openzeppelin/contracts/utils/Context.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 pragma solidity ^0.8.0;
@@ -1764,7 +1764,7 @@ interface IMintNft {
 
 // File contracts/nfts/NFTMiner.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
 

@@ -540,7 +540,6 @@ interface IRelationship {
 
 // File contracts/Relationship.sol
 
-
 pragma solidity ^0.8.0;
 
 
@@ -644,15 +643,15 @@ contract Relationship is Ownable,IRelationship {
 }
 
 
-// File contracts/BKNStake.sol
+// File contracts/FixedDeposit.sol
 
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 
 
 
-contract Stake is ReentrancyGuard, Relationship {
+contract FixedDeposit is ReentrancyGuard, Relationship {
     using SafeMath for uint256;
     struct Pool {
         uint256 apr; // pool apr
@@ -687,16 +686,17 @@ contract Stake is ReentrancyGuard, Relationship {
     event Reward(address indexed user, uint256 indexed pid, uint256 indexed amount);
 //    event Reinvestment(address indexed user, uint256 indexed pid, uint256 indexed amount);
 
-//    constructor(IERC20 _token, uint256 start,uint256 end)Relationship(start,end){
-    constructor () Relationship(1678159400,1678764200){
-        token = IERC20(0x97b3d934F051F506a71e56C0233EA344FCdc54d2);
+    constructor(IERC20 _token, uint256 start,uint256 end)Relationship(start,end){
+//    constructor () Relationship(1678159400,1678764200){
+//        token = IERC20(0x97b3d934F051F506a71e56C0233EA344FCdc54d2);
+        token = _token;
         // only for test
 //        addPool(40, 60 seconds / perBlockTime);
 //        addPool(80, 600 seconds / perBlockTime);
         // production
-        addPool(7, 30 days / perBlockTime);
-        addPool(12, 90 days / perBlockTime);
-        addPool(15, 180 days / perBlockTime);
+        addPool(7, 30 days);
+        addPool(12, 90 days);
+        addPool(15, 180 days);
     }
     modifier onlyUnLock(uint256 pid, address play){
         Pool memory pool = pools[pid];
@@ -710,7 +710,7 @@ contract Stake is ReentrancyGuard, Relationship {
         _;
     }
     function addPool (uint256 apr,uint256 locked) public onlyOwner{
-        pools.push(Pool(apr, locked, 0));
+        pools.push(Pool(apr, locked/ perBlockTime, 0));
     }
     function poolLength() external view returns (uint256) {
         return pools.length;
@@ -719,7 +719,7 @@ contract Stake is ReentrancyGuard, Relationship {
         pools[pid].apr = apr;
     }
     function setPoolLocked(uint256 pid, uint256 locked) public onlyOwner{
-        pools[pid].lockBlocks = locked;
+        pools[pid].lockBlocks = locked / perBlockTime;
     }
     function setPool(uint256 pid, uint256 apr, uint256 locked) public onlyOwner{
         pools[pid].apr = apr;
@@ -733,6 +733,7 @@ contract Stake is ReentrancyGuard, Relationship {
         if (user.amount == 0) return 0;
         uint256 perBlock = user.amount.mul(pool.apr).div(365 days).div(100).mul(perBlockTime);
         if (time >= pool.lockBlocks.add(user.enterBlock)) {
+            if (user.settledBlock >= pool.lockBlocks) return 0;
             return perBlock.mul(pool.lockBlocks.sub(user.settledBlock)).add(user.rewardDebt);
         }
         return perBlock.mul(time.sub(user.enterBlock).sub(user.settledBlock)).add(user.rewardDebt);
@@ -740,7 +741,7 @@ contract Stake is ReentrancyGuard, Relationship {
 
     // @dev deposit token can repeat, will settle the previous deposit
     // @dev only invited can deposit
-    function deposit(uint256 pid, uint256 amount) external nonReentrant onlyInvited(msg.sender) {
+    function deposit(uint256 pid, uint256 amount) external nonReentrant onlyInvited(msg.sender) inDuration {
         Pool storage pool = pools[pid];
         UserInfo storage user = userInfo[msg.sender][pid];
         token.transferFrom(msg.sender, address(this), amount);
@@ -773,6 +774,7 @@ contract Stake is ReentrancyGuard, Relationship {
         require(user.amount >= 0, "withdraw: Principal is zero");
         user.amount = 0;
         user.enterBlock = 0;
+        user.settledBlock = 0;
         user.claimed = false;
         accDeposit = accDeposit.sub(amount);
         pool.amount = pool.amount.sub(amount);
@@ -796,8 +798,8 @@ contract Stake is ReentrancyGuard, Relationship {
             token.transfer(inviter, userInviteReward);
             token.transfer(msg.sender, userReward);
             if (user.enterBlock.add(pool.lockBlocks) < block.number) user.claimed = true;
-            user.settledBlock = 0;
             user.accReward = user.accReward.add(userReward);
+            user.settledBlock = block.number.sub(user.enterBlock);
             user.rewardDebt = 0;
             accReward = accReward.add(reward);
             inviteReward[inviter] = inviteReward[inviter].add(userInviteReward);

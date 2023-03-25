@@ -2,7 +2,7 @@
 
 // File @openzeppelin/contracts/utils/Context.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 pragma solidity ^0.8.0;
@@ -30,7 +30,7 @@ abstract contract Context {
 
 // File @openzeppelin/contracts/access/Ownable.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
 
 pragma solidity ^0.8.0;
@@ -115,7 +115,7 @@ abstract contract Ownable is Context {
 
 // File @openzeppelin/contracts/utils/introspection/IERC165.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts v4.4.1 (utils/introspection/IERC165.sol)
 
 pragma solidity ^0.8.0;
@@ -144,7 +144,7 @@ interface IERC165 {
 
 // File @openzeppelin/contracts/token/ERC721/IERC721.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.8.0) (token/ERC721/IERC721.sol)
 
 pragma solidity ^0.8.0;
@@ -291,7 +291,7 @@ interface IERC721 is IERC165 {
 
 // File @openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.5.0) (token/ERC721/extensions/IERC721Enumerable.sol)
 
 pragma solidity ^0.8.0;
@@ -322,7 +322,7 @@ interface IERC721Enumerable is IERC721 {
 
 // File @openzeppelin/contracts/utils/math/Math.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.8.0) (utils/math/Math.sol)
 
 pragma solidity ^0.8.0;
@@ -671,7 +671,7 @@ library Math {
 
 // File @openzeppelin/contracts/utils/Strings.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.8.0) (utils/Strings.sol)
 
 pragma solidity ^0.8.0;
@@ -743,7 +743,7 @@ library Strings {
 
 // File @openzeppelin/contracts/utils/cryptography/ECDSA.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.8.0) (utils/cryptography/ECDSA.sol)
 
 pragma solidity ^0.8.0;
@@ -958,7 +958,7 @@ library ECDSA {
 
 // File @openzeppelin/contracts/security/ReentrancyGuard.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.8.0) (security/ReentrancyGuard.sol)
 
 pragma solidity ^0.8.0;
@@ -1031,7 +1031,7 @@ abstract contract ReentrancyGuard {
 
 // File @openzeppelin/contracts/utils/cryptography/MerkleProof.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.8.0) (utils/cryptography/MerkleProof.sol)
 
 pragma solidity ^0.8.0;
@@ -1258,7 +1258,7 @@ library MerkleProof {
 
 // File @openzeppelin/contracts/utils/math/SafeMath.sol@v4.8.1
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
 
 pragma solidity ^0.8.0;
@@ -1489,7 +1489,7 @@ library SafeMath {
 
 // File contracts/interfaces/IRelationship.sol
 
-// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
@@ -1524,7 +1524,7 @@ interface IRelationship {
 
 // File contracts/Relationship.sol
 
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 
@@ -1630,7 +1630,7 @@ contract Relationship is Ownable,IRelationship {
 
 // File contracts/nfts/ERC721Distributor.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.0;
 
@@ -1661,6 +1661,7 @@ contract ERC721Distributor is Ownable, ReentrancyGuard, Relationship {
     uint256 public total;
     uint256 public sold;
 
+    address public dead = 0x000000000000000000000000000000000000dEaD;
     //    mapping(address => uint256) public bought;
     mapping(address => mapping(address => uint256)) private bought;
     mapping(address => uint256) public prices;
@@ -1669,7 +1670,7 @@ contract ERC721Distributor is Ownable, ReentrancyGuard, Relationship {
         uint256 end,
         address _nft,
         uint256 _total
-    )Relationship(start, end) {
+    )Relationship(block.timestamp, end) {
         started = block.timestamp;
         ended = end;
         nft = _nft;
@@ -1679,7 +1680,6 @@ contract ERC721Distributor is Ownable, ReentrancyGuard, Relationship {
     }
 
     event Claim(uint256 indexed tokenID, address indexed user);
-
 
     modifier isFilled(uint256 quantity) {
         require(total >= sold.add(quantity), "sold out");
@@ -1708,25 +1708,29 @@ contract ERC721Distributor is Ownable, ReentrancyGuard, Relationship {
         cashier = _cashier;
     }
 
-    function claim(address currency, uint256 quantity) external nonReentrant inDuration {
+    function claim(address currency, uint256 quantity, bool isBlack) external nonReentrant inDuration {
         require(isInvited(msg.sender), "not invited");
-        _claim( currency, quantity);
+        _claim( currency, quantity, isBlack);
     }
 
-    function transferStranded(address currency, uint256 quantity) internal {
+    function transferStranded(address currency, uint256 quantity, bool isBlack) internal {
         require(prices[currency] != 0, 'not found this currency');
         if (getParent(msg.sender) == address(0)) {
             IERC20(currency).transferFrom(msg.sender, cashier, prices[currency].mul(quantity));
         } else {
-            IERC20(currency).transferFrom(msg.sender, cashier, prices[currency].mul(quantity).mul(90).div(100));
+            if (isBlack) {
+                IERC20(currency).transferFrom(msg.sender, dead, prices[currency].mul(quantity).mul(90).div(100));
+            }else {
+                IERC20(currency).transferFrom(msg.sender, cashier, prices[currency].mul(quantity).mul(90).div(100));
+            }
             IERC20(currency).transferFrom(msg.sender, getParent(msg.sender), prices[currency].mul(quantity).mul(10).div(100));
             bought[getParent(msg.sender)][currency] = bought[getParent(msg.sender)][currency].add(prices[currency].mul(quantity).mul(10).div(100));
         }
     }
 
-    function _claim(address currency, uint256 quantity) internal isFilled(quantity) {
+    function _claim(address currency, uint256 quantity, bool isBlack) internal isFilled(quantity) {
         address user = msg.sender;
-        transferStranded(currency, quantity);
+        transferStranded(currency, quantity, isBlack);
 
         for (uint256 i = 0; i < quantity; i++) {
             IMintNft(nft).mint(user);
